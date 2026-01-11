@@ -3,18 +3,67 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreService';
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
+import WalletConnectionModal from '../components/WalletConnectionModal';
 import './LandingPage.css';
+
+const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
+const USER_MODE_KEY = 'neon-sentinel-user-mode';
+
+export type UserMode = 'wallet' | 'anonymous';
+
+export function getUserMode(): UserMode | null {
+  const stored = localStorage.getItem(USER_MODE_KEY);
+  return (stored === 'wallet' || stored === 'anonymous') ? stored : null;
+}
+
+export function setUserMode(mode: UserMode): void {
+  localStorage.setItem(USER_MODE_KEY, mode);
+}
 
 function LandingPage() {
   const { primaryWallet } = useDynamicContext();
   const [leaderboard, setLeaderboard] = useState<Array<{ score: number; playerName: string }>>([]);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   useEffect(() => {
     const scores = fetchWeeklyLeaderboard();
     setLeaderboard(scores.slice(0, 3)); // Top 3
     setCurrentWeek(getCurrentISOWeek());
   }, []);
+
+  // Show wallet modal on first visit if wallet not connected
+  useEffect(() => {
+    const hasSeenModal = localStorage.getItem(WALLET_MODAL_SEEN_KEY) === 'true';
+    const userMode = getUserMode();
+    const isWalletConnected = !!primaryWallet;
+
+    // Show modal if:
+    // 1. User hasn't seen the modal before
+    // 2. No wallet is connected
+    // 3. No user mode is set (first visit)
+    if (!hasSeenModal && !isWalletConnected && !userMode) {
+      setShowWalletModal(true);
+    }
+  }, [primaryWallet]);
+
+  const handleCloseModal = () => {
+    setShowWalletModal(false);
+    localStorage.setItem(WALLET_MODAL_SEEN_KEY, 'true');
+  };
+
+  const handleAnonymous = () => {
+    setUserMode('anonymous');
+    handleCloseModal();
+  };
+
+
+  // Update user mode when wallet connects
+  useEffect(() => {
+    if (primaryWallet) {
+      setUserMode('wallet');
+    }
+  }, [primaryWallet]);
 
   // Generate weekly sector name based on week number
   const weeklySectorNames = [
@@ -342,6 +391,13 @@ function LandingPage() {
           </button>
         </div>
       </div>
+
+      {/* Wallet Connection Modal */}
+      <WalletConnectionModal
+        isOpen={showWalletModal}
+        onClose={handleCloseModal}
+        onAnonymous={handleAnonymous}
+      />
     </div>
   );
 }
