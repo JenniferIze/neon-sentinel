@@ -1,32 +1,156 @@
 /* Landing Page Styles */
-.landing-page {
-  font-family: 'Press Start 2P', monospace;
-  color: #00ff00;
-  background-color: #000000;
+
+/* Retro CRT Monitor Effect */
+@keyframes scanline {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 4px;
+  }
 }
 
-/* Pixel text glow effect */
-.pixel-glow {
-  text-shadow: 
-    0 0 10px #00ff00,
-    0 0 20px #00ff00,
-    0 0 30px #00ff00;
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
-/* Pixel border effect */
-.pixel-border {
+/* Retro Panel Styling */
+.retro-panel {
+  position: relative;
   border: 2px solid #00ff00;
-  box-shadow: 
-    0 0 10px rgba(0, 255, 0, 0.3),
-    inset 0 0 10px rgba(0, 255, 0, 0.1);
+  background: rgba(0, 0, 0, 0.9);
+  padding: 1.5rem;
+  transition: border-color 0.3s ease;
 }
 
-/* Button hover effect */
-.pixel-button:hover {
-  background-color: #00ff00;
+.retro-panel:hover {
+  border-color: #33ff33;
+}
+
+.retro-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 1px solid rgba(0, 255, 0, 0.15);
+  pointer-events: none;
+}
+
+.retro-button {
+  position: relative;
+  padding: 1rem 2rem;
+  border: 3px solid #00ff00;
+  background: rgba(0, 0, 0, 0.95);
+  color: #00ff00;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retro-button:hover {
+  background: #00ff00;
   color: #000000;
-  box-shadow: 
-    0 0 20px rgba(0, 255, 0, 0.5),
-    inset 0 0 20px rgba(0, 255, 0, 0.2);
+  border-color: #33ff33;
+  transform: translateY(-2px);
 }
 
+.retro-button:active {
+  transform: translateY(0px);
+}
+
+/* Logo Animation */
+.logo-container {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Leaderboard Entry Styling */
+.leaderboard-entry {
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  background: rgba(0, 255, 0, 0.03);
+  border-left: 2px solid #00ff00;
+  transition: all 0.2s ease;
+}
+
+.leaderboard-entry:hover {
+  background: rgba(0, 255, 0, 0.08);
+  border-left-width: 3px;
+  padding-left: calc(0.5rem - 1px);
+}
+
+/* Scanline Animation */
+.scanlines {
+  position: relative;
+}
+
+.scanlines::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 0, 0.02) 0px,
+    rgba(0, 255, 0, 0.02) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1000;
+  animation: scanline 8s linear infinite;
+}
+
+/* Grid Background Animation */
+@keyframes grid-shift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 40px;
+  }
+}
+
+.animated-grid {
+  animation: grid-shift 20s linear infinite;
+}
+
+/* Rank Badge */
+.rank-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 255, 0, 0.15);
+  border: 1px solid #00ff00;
+  margin-right: 0.5rem;
+  font-weight: bold;
+}
+
+/* Layer Indicator */
+.layer-indicator {
+  position: relative;
+  padding: 0.75rem;
+  background: rgba(0, 255, 0, 0.03);
+  border: 2px solid #00ff00;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.layer-indicator.active {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: #ff0000;
+}
+
+.layer-indicator:hover {
+  background: rgba(0, 255, 0, 0.08);
+  transform: scale(1.02);
+}

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreService';
 import { useState, useEffect } from 'react';
+import logoImage from '../assets/logo.png';
 import './LandingPage.css';
 
 function LandingPage() {
@@ -37,20 +38,21 @@ function LandingPage() {
   const topScore = leaderboard[0]?.score || 0;
   const topPlayer = leaderboard[0]?.playerName || 'None';
 
-  return (
-    <div className="min-h-screen bg-black text-neon-green relative overflow-hidden">
-      {/* Scanline overlay */}
-      <div className="fixed inset-0 pointer-events-none z-50 opacity-30">
-        <div 
-          className="w-full h-full"
-          style={{
-            background: 'repeating-linear-gradient(0deg, rgba(0, 255, 0, 0.03) 0px, rgba(0, 255, 0, 0.03) 1px, transparent 1px, transparent 2px)'
-          }}
-        />
-      </div>
+  // Layer configuration - matching the design
+  const layers = [
+    { name: 'Boot Sector', threshold: 0 },
+    { name: 'Firewall', threshold: 500 },
+    { name: 'Security Core', threshold: 1500 },
+    { name: 'Kernel Breach', threshold: 10000 },
+    { name: 'System Collapse', threshold: 25000 },
+  ];
+  const currentLayerIndex = 1; // Currently at Layer 2 (Firewall)
+  const nextLayerThreshold = layers[currentLayerIndex + 1]?.threshold || 1000;
 
-      {/* Grid background */}
-      <div className="fixed inset-0 opacity-10 pointer-events-none">
+  return (
+    <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+      {/* Animated Grid Background */}
+      <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid">
         <div 
           className="w-full h-full"
           style={{
@@ -60,113 +62,227 @@ function LandingPage() {
         />
       </div>
 
-      <div className="relative z-10 container mx-auto px-8 py-12">
-        {/* Title Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-6xl md:text-8xl font-pixel mb-4 text-neon-green" style={{ 
-            textShadow: '0 0 10px #00ff00, 0 0 20px #00ff00',
-            letterSpacing: '0.1em'
-          }}>
-            NEON SENTINEL
-          </h1>
-          <p className="text-xl md:text-2xl font-pixel text-red-500" style={{ letterSpacing: '0.1em' }}>
-            Weekly Sector: {sectorName}
-          </p>
+      {/* Vignette Effect */}
+      <div className="fixed inset-0 pointer-events-none z-40" style={{
+        background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.5) 100%)'
+      }} />
+
+      <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
+        {/* Logo & Sector Section */}
+        <div className="text-center mb-10 md:mb-12">
+          <div className="logo-container mb-6 flex justify-center">
+            <img 
+              src={logoImage} 
+              alt="Neon Sentinel" 
+              className="max-w-full h-auto"
+              style={{
+                maxHeight: '140px',
+                imageRendering: 'auto'
+              }}
+            />
+          </div>
+          <div>
+            <p className="text-xl md:text-2xl font-menu text-red-500" style={{ letterSpacing: '0.15em' }}>
+              WEEKLY SECTOR: {sectorName}
+            </p>
+            <p className="text-sm md:text-base font-body text-neon-green opacity-70 mt-2" style={{ letterSpacing: '0.1em' }}>
+              Week {currentWeek} • Grid Status: ACTIVE
+            </p>
+          </div>
         </div>
 
         {/* START GAME Button */}
-        <div className="text-center mb-12">
-          <Link to="/play">
-            <button className="px-12 py-6 border-4 border-neon-green text-neon-green font-pixel text-2xl md:text-3xl bg-black hover:bg-neon-green hover:text-black transition-all duration-200" style={{
-              textShadow: '0 0 10px #00ff00',
-              boxShadow: '0 0 20px rgba(0, 255, 0, 0.3), inset 0 0 20px rgba(0, 255, 0, 0.1)',
-              letterSpacing: '0.1em'
-            }}>
+        <div className="text-center mb-12 md:mb-16">
+          <Link to="/play" className="inline-block">
+            <button className="retro-button font-logo text-xl md:text-3xl px-8 md:px-16 py-4 md:py-6">
               &gt;&gt; START GAME &lt;&lt;
             </button>
           </Link>
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Left Panel: Weekly Leaderboard */}
-          <div className="border-2 border-neon-green p-6 bg-black bg-opacity-50">
-            <h2 className="font-pixel text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
-              WEEKLY LEADERBOARD (Week {currentWeek})
+          <div className="retro-panel">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+              letterSpacing: '0.1em'
+            }}>
+              WEEKLY LEADERBOARD
             </h2>
-            <div className="space-y-3 mb-4">
+            <div className="text-xs text-neon-green opacity-70 mb-3 font-body">Week {currentWeek}</div>
+            <div className="space-y-2 mb-4">
               {leaderboard.length > 0 ? (
                 leaderboard.map((entry, index) => (
-                  <div key={index} className="font-pixel text-sm text-neon-green">
-                    {index + 1}. {entry.playerName} - {entry.score.toLocaleString()}
+                  <div key={index} className="leaderboard-entry">
+                    <div className="flex items-center justify-between">
+                      <span>
+                        <span className="rank-badge font-score text-base">{index + 1}</span>
+                        <span className="font-score text-base md:text-lg">{entry.playerName}</span>
+                      </span>
+                      <span className="font-score text-base md:text-lg text-neon-green">
+                        {entry.score.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 ))
               ) : (
-                <div className="font-pixel text-sm text-neon-green opacity-50">
-                  No scores yet
+                <div className="leaderboard-entry text-center py-4">
+                  <div className="font-body text-sm text-neon-green opacity-50">
+                    NO SCORES YET
+                  </div>
                 </div>
               )}
             </div>
-            <div className="font-pixel text-xs text-neon-green border-t-2 border-neon-green pt-2">
-              TOP SCORE OF THE WEEK: {topPlayer} {topScore.toLocaleString()}
+            <div className="border-t-2 border-neon-green pt-3 mt-4">
+              <div className="font-score text-sm text-neon-green">
+                TOP: {topPlayer} - {topScore.toLocaleString()}
+              </div>
             </div>
           </div>
 
-          {/* Middle Panel: Current Depth */}
-          <div className="border-2 border-neon-green p-6 bg-black bg-opacity-50">
-            <h2 className="font-pixel text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
-              Current Depth: 2 ~ FIREWALL
+          {/* Middle Panel: System Depth */}
+          <div className="retro-panel">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+              letterSpacing: '0.1em'
+            }}>
+              SYSTEM DEPTH
             </h2>
-            <div className="grid grid-cols-4 gap-2">
-              {['Boot Sector', 'Firewall', 'Security Core', 'Kernel Breach'].map((layer, index) => (
-                <div key={index} className="text-center">
-                  <div className="w-12 h-12 mx-auto mb-2 border-2 border-neon-green bg-black opacity-50 flex items-center justify-center">
-                    <div className="w-8 h-8 border border-neon-green" />
+            <div className="text-xs text-neon-green opacity-70 mb-4 font-body">
+              Current Depth: <span className="text-red-500 font-semibold">LAYER {currentLayerIndex + 1}</span>
+            </div>
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              {layers.map((layer, index) => {
+                const isActive = index === currentLayerIndex;
+                const isUnlocked = index <= currentLayerIndex;
+                return (
+                  <div key={index} className={`layer-indicator ${isActive ? 'active' : ''}`}>
+                    <div className="w-full h-12 mb-2 border-2 bg-black flex items-center justify-center" style={{
+                      background: isActive 
+                        ? 'radial-gradient(circle, rgba(255, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.9) 100%)'
+                        : 'radial-gradient(circle, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.9) 100%)',
+                      borderColor: isActive ? '#ff0000' : isUnlocked ? '#00ff00' : '#333333'
+                    }}>
+                      <div className="w-8 h-8 border" style={{
+                        borderColor: isActive ? '#ff0000' : isUnlocked ? '#00ff00' : '#333333'
+                      }} />
+                    </div>
+                    <p className={`font-menu text-xs ${isActive ? 'text-red-500' : isUnlocked ? 'text-neon-green' : 'text-gray-500'}`}>
+                      {layer.name}
+                    </p>
                   </div>
-                  <p className={`font-pixel text-xs ${index === 1 ? 'text-red-500' : 'text-neon-green'}`}>
-                    {layer}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+            <div className="space-y-1 text-xs font-body text-neon-green">
+              <div>Hive Code Attacks Increasing</div>
+              <div className="opacity-70">Next Layer at {nextLayerThreshold.toLocaleString()} Points</div>
             </div>
           </div>
 
-          {/* Right Panel: Tournament Champions */}
-          <div className="border-2 border-neon-green p-6 bg-black bg-opacity-50">
-            <h2 className="font-pixel text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
-              TOURNAMENT CHAMPIONS
+          {/* Right Panel: Champions */}
+          <div className="retro-panel">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+              letterSpacing: '0.1em'
+            }}>
+              CHAMPIONS
             </h2>
-            <div className="space-y-2 font-pixel text-sm text-neon-green">
-              <div>Sector Champion: {topPlayer || 'None'}</div>
-              <div className="opacity-50">Previous: Coming Soon</div>
+            <div className="space-y-3">
+              <div className="py-2 border-b border-neon-green border-opacity-30">
+                <div className="font-body text-xs text-neon-green opacity-70 mb-1">SECTOR CHAMPION</div>
+                <div className="font-score text-lg text-neon-green">
+                  {topPlayer || 'NONE'}
+                </div>
+              </div>
+              <div className="py-2 border-b border-neon-green border-opacity-30">
+                <div className="font-body text-xs text-neon-green opacity-70 mb-1">PREVIOUS</div>
+                <div className="font-body text-sm text-neon-green opacity-50">Coming Soon</div>
+              </div>
+              <div className="py-2">
+                <div className="font-body text-xs text-neon-green opacity-70 mb-1">STATUS</div>
+                <div className="font-body text-sm text-green-500">
+                  ACTIVE
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Section: Unlocked Items */}
-        <div className="border-2 border-neon-green p-6 bg-black bg-opacity-50 mb-8">
-          <h2 className="font-pixel text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
-            Unlocked: Kernel Walker &amp; Drone
+        {/* Hall of Fame Link */}
+        <div className="mb-4 md:mb-6">
+          <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
+            letterSpacing: '0.1em'
+          }}>
+            &gt; HALL OF FAME
+          </button>
+        </div>
+
+        {/* Bottom Section: Unlocked Systems */}
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+            letterSpacing: '0.1em'
+          }}>
+            UNLOCKED SYSTEMS
           </h2>
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((item) => (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Kernel Walker */}
+            <div className="text-center">
+              <div className="w-full h-20 md:h-24 mx-auto border-2 border-neon-green bg-black mb-2 flex items-center justify-center relative overflow-hidden" style={{
+                background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.95) 100%)'
+              }}>
+                <img 
+                  src="/sprites/hero_2.svg" 
+                  alt="Kernel Walker"
+                  className="max-w-full max-h-full object-contain"
+                  style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
+                />
+              </div>
+              <p className="font-menu text-xs text-neon-green">Kernel Walker</p>
+            </div>
+
+            {/* Drone */}
+            <div className="text-center">
+              <div className="w-full h-20 md:h-24 mx-auto border-2 border-neon-green bg-black mb-2 flex items-center justify-center relative overflow-hidden" style={{
+                background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.95) 100%)'
+              }}>
+                <img 
+                  src="/sprites/drone.svg" 
+                  alt="Drone"
+                  className="max-w-full max-h-full object-contain"
+                  style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
+                />
+              </div>
+              <p className="font-menu text-xs text-neon-green">Drone</p>
+            </div>
+
+            {/* Locked Items */}
+            {[1, 2, 3].map((item) => (
               <div key={item} className="text-center">
-                <div className="w-16 h-16 mx-auto border-2 border-neon-green bg-black opacity-50" />
-                <p className="font-pixel text-xs text-neon-green mt-2">Item {item}</p>
+                <div className="w-full h-20 md:h-24 mx-auto border-2 border-gray-600 bg-black mb-2 flex items-center justify-center relative overflow-hidden" style={{
+                  background: 'linear-gradient(135deg, rgba(100, 100, 100, 0.05) 0%, rgba(0, 0, 0, 0.95) 100%)'
+                }}>
+                  <div className="w-12 h-12 border border-gray-600 opacity-30" />
+                </div>
+                <p className="font-menu text-xs text-gray-500">Locked</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <div className="flex justify-between items-center">
-          <button className="font-pixel text-neon-green hover:text-red-500 transition-colors cursor-pointer">
+        {/* Footer Navigation */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
+          <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
+            letterSpacing: '0.1em'
+          }}>
             &gt; HALL OF FAME
           </button>
-          <div className="font-pixel text-xs text-neon-green opacity-50">
-            {primaryWallet ? `Connected: ${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}` : 'Not Connected'}
+          <div className="font-body text-xs text-neon-green opacity-60 px-4 py-2 border border-neon-green border-opacity-30 bg-black bg-opacity-50" style={{
+            letterSpacing: '0.05em'
+          }}>
+            {primaryWallet ? `CONNECTED: ${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}` : 'NOT CONNECTED'}
           </div>
-          <button className="font-pixel text-neon-green hover:text-red-500 transition-colors cursor-pointer">
+          <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
+            letterSpacing: '0.1em'
+          }}>
             &gt; SETTINGS
           </button>
         </div>

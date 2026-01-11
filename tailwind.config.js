@@ -12,10 +12,14 @@ export default {
         'neon-green-light': '#33ff33',
       },
       fontFamily: {
-        'pixel': ['"Press Start 2P"', 'monospace'],
+        'brutal': ['"Bungee"', 'sans-serif'], // Bold, blocky, brutalist for logos
+        'title': ['"Black Ops One"', 'cursive'], // Military brutalist for big titles
+        'logo': ['"Bungee"', 'sans-serif'], // Alias for brutal - main button/logo
+        'menu': ['"Rajdhani"', 'sans-serif'], // Geometric, bold for menus
+        'score': ['"Share Tech Mono"', 'monospace'], // Tech monospace for score/HUD
+        'body': ['"JetBrains Mono"', 'monospace'], // Clean monospace for body text
       },
     },
   },
   plugins: [],
 }
-

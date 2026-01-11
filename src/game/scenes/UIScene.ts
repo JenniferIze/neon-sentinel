@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_CONFIG, UI_CONFIG } from '../config';
+import { UI_CONFIG } from '../config';
 import { GameScene } from './GameScene';
 
 export class UIScene extends Phaser.Scene {
@@ -23,31 +23,31 @@ export class UIScene extends Phaser.Scene {
   }
 
   create() {
-    // Score display (top-left)
+    // Score display (top-left) - VT323 for retro terminal feel
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', {
-      fontFamily: UI_CONFIG.pixelFont,
-      fontSize: UI_CONFIG.fontSize.small,
+      fontFamily: UI_CONFIG.scoreFont,
+      fontSize: 24,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 3,
     });
 
     // Combo multiplier display
     this.comboText = this.add.text(20, 50, 'COMBO: 1.0x', {
-      fontFamily: UI_CONFIG.pixelFont,
-      fontSize: UI_CONFIG.fontSize.small,
+      fontFamily: UI_CONFIG.scoreFont,
+      fontSize: 24,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 3,
     });
 
-    // Layer display
+    // Layer display - Oxanium for menu/subtitle style
     this.layerText = this.add.text(20, 80, 'LAYER: Boot Sector', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 3,
     });
 
     // Game Over overlay (hidden initially)
@@ -98,8 +98,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createGameOverOverlay() {
-    const width = GAME_CONFIG.width;
-    const height = GAME_CONFIG.height;
+    const width = this.scale.width;
+    const height = this.scale.height;
 
     // Background overlay
     const overlay = this.add.rectangle(
@@ -112,9 +112,9 @@ export class UIScene extends Phaser.Scene {
     );
     overlay.setOrigin(0.5, 0.5);
 
-    // Game Over text
+    // Game Over text - Orbitron for big titles
     this.gameOverText = this.add.text(width / 2, height / 2 - 100, 'GAME OVER', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.logoFont,
       fontSize: UI_CONFIG.fontSize.xlarge,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -122,19 +122,19 @@ export class UIScene extends Phaser.Scene {
     });
     this.gameOverText.setOrigin(0.5, 0.5);
 
-    // Final score
+    // Final score - VT323 for score display
     this.finalScoreText = this.add.text(width / 2, height / 2 - 50, 'FINAL SCORE: 0', {
-      fontFamily: UI_CONFIG.pixelFont,
-      fontSize: UI_CONFIG.fontSize.medium,
+      fontFamily: UI_CONFIG.scoreFont,
+      fontSize: 28,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
       strokeThickness: 4,
     });
     this.finalScoreText.setOrigin(0.5, 0.5);
 
-    // Restart instruction
+    // Restart instruction - Oxanium for buttons/menus
     this.restartText = this.add.text(width / 2, height / 2 + 30, 'PRESS R TO RESTART', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -144,7 +144,7 @@ export class UIScene extends Phaser.Scene {
 
     // Return to menu instruction
     this.returnToMenuText = this.add.text(width / 2, height / 2 + 70, 'PRESS M TO RETURN TO MENU', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -173,8 +173,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createPauseOverlay() {
-    const width = GAME_CONFIG.width;
-    const height = GAME_CONFIG.height;
+    const width = this.scale.width;
+    const height = this.scale.height;
 
     // Background overlay
     const overlay = this.add.rectangle(
@@ -187,9 +187,9 @@ export class UIScene extends Phaser.Scene {
     );
     overlay.setOrigin(0.5, 0.5);
 
-    // Paused text
+    // Paused text - Orbitron for big titles
     this.pauseText = this.add.text(width / 2, height / 2 - 80, 'PAUSED', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.logoFont,
       fontSize: UI_CONFIG.fontSize.xlarge,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -197,9 +197,9 @@ export class UIScene extends Phaser.Scene {
     });
     this.pauseText.setOrigin(0.5, 0.5);
 
-    // Resume instruction
+    // Resume instruction - Oxanium for buttons/menus
     this.resumeText = this.add.text(width / 2, height / 2 - 20, 'PRESS ESC TO RESUME', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.medium,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -209,7 +209,7 @@ export class UIScene extends Phaser.Scene {
 
     // Return to menu instruction
     this.pauseMenuText = this.add.text(width / 2, height / 2 + 40, 'PRESS M TO RETURN TO MENU', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -237,8 +237,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   private createLeaderboardPanel() {
-    const width = GAME_CONFIG.width;
-    const height = GAME_CONFIG.height;
+    const width = this.scale.width;
+    const height = this.scale.height;
 
     // Background panel
     const panelBg = this.add.rectangle(
@@ -251,9 +251,9 @@ export class UIScene extends Phaser.Scene {
     );
     panelBg.setStrokeStyle(2, 0x00ff00);
 
-    // Title
+    // Title - Oxanium for menu headings
     const title = this.add.text(width / 2, height / 2 + 50, 'WEEKLY LEADERBOARD', {
-      fontFamily: UI_CONFIG.pixelFont,
+      fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
@@ -336,18 +336,20 @@ export class UIScene extends Phaser.Scene {
     });
 
     // Create new entries
-    const startY = GAME_CONFIG.height / 2 + 100;
+    const gameHeight = this.scale.height;
+    const startY = gameHeight / 2 + 100;
     scores.slice(0, 10).forEach((entry, index) => {
       const y = startY + (index * 25);
       const rank = index + 1;
       const playerName = entry.playerName || 'Anonymous';
       const displayName = playerName.length > 12 ? playerName.substring(0, 12) + '...' : playerName;
       
-      const entryText = this.add.text(GAME_CONFIG.width / 2, y, 
+      const gameWidth = this.scale.width;
+      const entryText = this.add.text(gameWidth / 2, y, 
         `${rank}. ${displayName.padEnd(15)} ${entry.score.toLocaleString()}`,
         {
-          fontFamily: UI_CONFIG.pixelFont,
-          fontSize: 10,
+          fontFamily: UI_CONFIG.scoreFont,
+          fontSize: 18,
           color: UI_CONFIG.neonGreen,
           stroke: '#000000',
           strokeThickness: 2,
