@@ -27,6 +27,7 @@ export class GameScene extends Phaser.Scene {
   private currentLayer = 1;
   private deepestLayer = 1;
   private enemyBullets!: Phaser.Physics.Arcade.Group;
+  private isPaused = false;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -67,7 +68,9 @@ export class GameScene extends Phaser.Scene {
 
     // Mouse input for shooting
     this.input.on('pointerdown', () => {
-      this.shoot();
+      if (!this.isPaused) {
+        this.shoot();
+      }
     });
 
     // Collisions
@@ -113,6 +116,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('comboMultiplier', this.comboMultiplier);
     this.registry.set('currentLayer', this.currentLayer);
     this.registry.set('layerName', LAYER_CONFIG[1].name);
+    this.registry.set('isPaused', false);
   }
 
   private drawBackgroundGrid() {
@@ -135,7 +139,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number) {
-    if (this.gameOver) return;
+    // Pause/resume is handled by UIScene ESC key handler
+    // GameScene update continues to run even when paused so UIScene can handle input
+    
+    if (this.gameOver || this.isPaused) return;
 
     // Player movement
     this.handlePlayerMovement();
@@ -626,9 +633,46 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  public togglePause() {
+    this.isPaused = !this.isPaused;
+    this.registry.set('isPaused', this.isPaused);
+
+    if (this.isPaused) {
+      this.physics.pause();
+      // Stop all movement
+      this.player.setVelocity(0, 0);
+      this.enemies.children.entries.forEach((enemy) => {
+        const e = enemy as Phaser.Physics.Arcade.Sprite;
+        e.setVelocity(0, 0);
+      });
+      this.bullets.children.entries.forEach((bullet) => {
+        const b = bullet as Phaser.Physics.Arcade.Sprite;
+        b.setVelocity(0, 0);
+      });
+      this.enemyBullets.children.entries.forEach((bullet) => {
+        const b = bullet as Phaser.Physics.Arcade.Sprite;
+        b.setVelocity(0, 0);
+      });
+    } else {
+      this.physics.resume();
+    }
+  }
+
+  public returnToMenu() {
+    // Call the returnToMenu function from the game instance
+    const game = this.game as any;
+    if (game.returnToMenu) {
+      game.returnToMenu();
+    } else {
+      // Fallback: use window.location
+      window.location.href = '/';
+    }
+  }
+
   public restart() {
     // Reset game state
     this.gameOver = false;
+    this.isPaused = false;
     this.score = 0;
     this.comboMultiplier = 1;
     this.lastHitTime = 0;
@@ -654,6 +698,7 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('comboMultiplier', 1);
     this.registry.set('currentLayer', 1);
     this.registry.set('layerName', LAYER_CONFIG[1].name);
+    this.registry.set('isPaused', false);
 
     // Reset spawn timer
     if (this.spawnTimer) {

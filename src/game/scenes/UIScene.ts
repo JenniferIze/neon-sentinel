@@ -10,6 +10,11 @@ export class UIScene extends Phaser.Scene {
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
   private restartText!: Phaser.GameObjects.Text;
+  private returnToMenuText!: Phaser.GameObjects.Text;
+  private pauseContainer!: Phaser.GameObjects.Container;
+  private pauseText!: Phaser.GameObjects.Text;
+  private resumeText!: Phaser.GameObjects.Text;
+  private pauseMenuText!: Phaser.GameObjects.Text;
   private leaderboardPanel!: Phaser.GameObjects.Container;
   private leaderboardVisible = false;
 
@@ -48,6 +53,9 @@ export class UIScene extends Phaser.Scene {
     // Game Over overlay (hidden initially)
     this.createGameOverOverlay();
 
+    // Pause overlay (hidden initially)
+    this.createPauseOverlay();
+
     // Leaderboard panel (hidden initially)
     this.createLeaderboardPanel();
 
@@ -56,14 +64,35 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
+    this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
     
     // Listen for score submission from GameScene
     this.events.on('submitScore', this.onSubmitScore, this);
 
-    // Listen for restart
+    // Listen for restart (R key)
     this.input.keyboard!.on('keydown-R', () => {
       if (this.registry.get('gameOver')) {
         this.restartGame();
+      }
+    });
+
+    // Listen for return to menu (M key)
+    this.input.keyboard!.on('keydown-M', () => {
+      const gameScene = this.scene.get('GameScene') as GameScene;
+      if (gameScene) {
+        gameScene.returnToMenu();
+      }
+    });
+
+    // ESC key handler - handles both pause and resume
+    const escKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    escKey.on('down', () => {
+      const gameOver = this.registry.get('gameOver');
+      if (!gameOver) {
+        const gameScene = this.scene.get('GameScene') as GameScene;
+        if (gameScene && gameScene.scene.isActive()) {
+          gameScene.togglePause();
+        }
       }
     });
   }
@@ -104,7 +133,7 @@ export class UIScene extends Phaser.Scene {
     this.finalScoreText.setOrigin(0.5, 0.5);
 
     // Restart instruction
-    this.restartText = this.add.text(width / 2, height / 2 + 50, 'PRESS R TO RESTART', {
+    this.restartText = this.add.text(width / 2, height / 2 + 30, 'PRESS R TO RESTART', {
       fontFamily: UI_CONFIG.pixelFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -113,9 +142,19 @@ export class UIScene extends Phaser.Scene {
     });
     this.restartText.setOrigin(0.5, 0.5);
 
-    // Blinking effect for restart text
+    // Return to menu instruction
+    this.returnToMenuText = this.add.text(width / 2, height / 2 + 70, 'PRESS M TO RETURN TO MENU', {
+      fontFamily: UI_CONFIG.pixelFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 4,
+    });
+    this.returnToMenuText.setOrigin(0.5, 0.5);
+
+    // Blinking effect for text
     this.tweens.add({
-      targets: this.restartText,
+      targets: [this.restartText, this.returnToMenuText],
       alpha: 0.5,
       duration: 500,
       yoyo: true,
@@ -128,8 +167,73 @@ export class UIScene extends Phaser.Scene {
       this.gameOverText,
       this.finalScoreText,
       this.restartText,
+      this.returnToMenuText,
     ]);
     this.gameOverContainer.setVisible(false);
+  }
+
+  private createPauseOverlay() {
+    const width = GAME_CONFIG.width;
+    const height = GAME_CONFIG.height;
+
+    // Background overlay
+    const overlay = this.add.rectangle(
+      width / 2,
+      height / 2,
+      width,
+      height,
+      0x000000,
+      0.85
+    );
+    overlay.setOrigin(0.5, 0.5);
+
+    // Paused text
+    this.pauseText = this.add.text(width / 2, height / 2 - 80, 'PAUSED', {
+      fontFamily: UI_CONFIG.pixelFont,
+      fontSize: UI_CONFIG.fontSize.xlarge,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 6,
+    });
+    this.pauseText.setOrigin(0.5, 0.5);
+
+    // Resume instruction
+    this.resumeText = this.add.text(width / 2, height / 2 - 20, 'PRESS ESC TO RESUME', {
+      fontFamily: UI_CONFIG.pixelFont,
+      fontSize: UI_CONFIG.fontSize.medium,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 4,
+    });
+    this.resumeText.setOrigin(0.5, 0.5);
+
+    // Return to menu instruction
+    this.pauseMenuText = this.add.text(width / 2, height / 2 + 40, 'PRESS M TO RETURN TO MENU', {
+      fontFamily: UI_CONFIG.pixelFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 4,
+    });
+    this.pauseMenuText.setOrigin(0.5, 0.5);
+
+    // Blinking effect for text
+    this.tweens.add({
+      targets: [this.resumeText, this.pauseMenuText],
+      alpha: 0.6,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Create container and hide it initially
+    this.pauseContainer = this.add.container(0, 0, [
+      overlay,
+      this.pauseText,
+      this.resumeText,
+      this.pauseMenuText,
+    ]);
+    this.pauseContainer.setVisible(false);
   }
 
   private createLeaderboardPanel() {
@@ -179,10 +283,19 @@ export class UIScene extends Phaser.Scene {
       const finalScore = this.registry.get('finalScore') || 0;
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
       this.gameOverContainer.setVisible(true);
+      this.pauseContainer.setVisible(false);
     } else {
       this.gameOverContainer.setVisible(false);
       this.leaderboardPanel.setVisible(false);
       this.leaderboardVisible = false;
+    }
+  }
+
+  private onPauseChanged(_parent: Phaser.Data.DataManager, isPaused: boolean) {
+    if (isPaused && !this.registry.get('gameOver')) {
+      this.pauseContainer.setVisible(true);
+    } else {
+      this.pauseContainer.setVisible(false);
     }
   }
 
@@ -257,9 +370,11 @@ export class UIScene extends Phaser.Scene {
       gameScene.restart();
     }
     this.gameOverContainer.setVisible(false);
+    this.pauseContainer.setVisible(false);
     this.leaderboardPanel.setVisible(false);
     this.leaderboardVisible = false;
     this.registry.set('gameOver', false);
+    this.registry.set('isPaused', false);
   }
 }
 
