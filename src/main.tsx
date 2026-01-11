@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
@@ -32,7 +33,9 @@ createRoot(document.getElementById("root")!).render(
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <DynamicWagmiConnector>
-            <App />
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
           </DynamicWagmiConnector>
         </QueryClientProvider>
       </WagmiProvider>

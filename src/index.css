@@ -1,33 +1,59 @@
 
-/* Import a web font */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import web fonts */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
 
 /* Reset CSS */
-* {
-	margin: 0;
-	padding: 0;
-	box-sizing: border-box;
+@layer base {
+	* {
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+
+	html,
+	body,
+	#root {
+		width: 100%;
+		height: 100%;
+		font-family:
+			"Inter",
+			-apple-system,
+			BlinkMacSystemFont,
+			"Segoe UI",
+			Roboto,
+			Oxygen,
+			Ubuntu,
+			Cantarell,
+			"Open Sans",
+			"Helvetica Neue",
+			sans-serif;
+	}
+
+	body {
+		overflow-x: hidden;
+	}
 }
 
-html,
-body,
-#root {
+/* Scanline overlay for retro effect */
+.scanlines::before {
+	content: '';
+	position: fixed;
+	top: 0;
+	left: 0;
 	width: 100%;
 	height: 100%;
-	font-family:
-		"Inter",
-		-apple-system,
-		BlinkMacSystemFont,
-		"Segoe UI",
-		Roboto,
-		Oxygen,
-		Ubuntu,
-		Cantarell,
-		"Open Sans",
-		"Helvetica Neue",
-		sans-serif;
-}
-
-body {
-	overflow-x: hidden;
+	background: repeating-linear-gradient(
+		0deg,
+		rgba(0, 255, 0, 0.03),
+		rgba(0, 255, 0, 0.03) 1px,
+		transparent 1px,
+		transparent 2px
+	);
+	pointer-events: none;
+	z-index: 1000;
 }
