@@ -6,6 +6,7 @@ import {
     LAYER_CONFIG,
     POWERUP_CONFIG,
     MOBILE_SCALE,
+    UI_CONFIG,
 } from "../config";
 
 export class GameScene extends Phaser.Scene {
@@ -277,6 +278,11 @@ export class GameScene extends Phaser.Scene {
             const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
             const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
 
+            // Update health bar position to follow enemy
+            if (enemy.active) {
+                this.updateEnemyHealthBar(enemy);
+            }
+
             // Graduation bosses should not be destroyed and should continuously move toward player
             if (isGraduationBoss) {
                 // Make graduation boss continuously move toward player
@@ -307,6 +313,15 @@ export class GameScene extends Phaser.Scene {
             } else {
                 // Normal enemies: remove if they go off the right edge
                 if (enemy.x > gameWidth + 100) {
+                    // Clean up health bar
+                    const healthBarBg = enemy.getData("healthBarBg") as
+                        | Phaser.GameObjects.Graphics
+                        | undefined;
+                    const healthBarFill = enemy.getData("healthBarFill") as
+                        | Phaser.GameObjects.Graphics
+                        | undefined;
+                    if (healthBarBg) healthBarBg.destroy();
+                    if (healthBarFill) healthBarFill.destroy();
                     enemy.destroy();
                     return;
                 }
@@ -559,6 +574,9 @@ export class GameScene extends Phaser.Scene {
             );
         }
 
+        // Create health bar for enemy
+        this.createEnemyHealthBar(enemy);
+
         this.enemies.add(enemy);
 
         // Move toward player with slight randomness
@@ -667,6 +685,9 @@ export class GameScene extends Phaser.Scene {
         boss.setData("canShoot", false);
         boss.setData("isBoss", true);
 
+        // Create health bar for boss
+        this.createEnemyHealthBar(boss);
+
         this.enemies.add(boss);
 
         // Boss moves toward player
@@ -680,6 +701,15 @@ export class GameScene extends Phaser.Scene {
         const velocityX = Math.cos(angle) * speed;
         const velocityY = Math.sin(angle) * speed;
         boss.setVelocity(velocityX, velocityY);
+
+        // Show announcement card for regular boss incoming
+        const layerName =
+            LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG].name;
+        this.showAnnouncement(
+            "BOSS INCOMING!",
+            `Elite enemy detected in ${layerName}`,
+            0xff8800 // Orange color for warning
+        );
     }
 
     private spawnGraduationBoss(targetLayer: number) {
@@ -768,6 +798,9 @@ export class GameScene extends Phaser.Scene {
         boss.setData("lastShot", 0);
         boss.setData("shootInterval", 1500); // Shoot every 1.5 seconds
 
+        // Create health bar for graduation boss
+        this.createEnemyHealthBar(boss);
+
         this.enemies.add(boss);
 
         // Boss moves toward player
@@ -785,6 +818,15 @@ export class GameScene extends Phaser.Scene {
         // Visual effect - screen flash and shake
         this.cameras.main.flash(300, 255, 0, 0, false); // Red flash
         this.cameras.main.shake(500, 0.02);
+
+        // Show announcement card for boss incoming
+        const bossName =
+            LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG].name;
+        this.showAnnouncement(
+            "GRADUATION BOSS INCOMING!",
+            `Defeat it to advance to ${bossName}`,
+            0xff0000 // Red color for warning
+        );
 
         // Show warning message (could be enhanced with UI text)
         console.log(
@@ -814,6 +856,9 @@ export class GameScene extends Phaser.Scene {
         health -= 1;
         e.setData("health", health);
 
+        // Update health bar
+        this.updateEnemyHealthBar(e);
+
         if (health <= 0) {
             // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
@@ -823,12 +868,31 @@ export class GameScene extends Phaser.Scene {
                 this.graduationBossActive = false;
             }
 
+            // Destroy health bar before destroying enemy
+            const healthBarBg = e.getData("healthBarBg") as
+                | Phaser.GameObjects.Graphics
+                | undefined;
+            const healthBarFill = e.getData("healthBarFill") as
+                | Phaser.GameObjects.Graphics
+                | undefined;
+            if (healthBarBg) healthBarBg.destroy();
+            if (healthBarFill) healthBarFill.destroy();
+
             // Enemy destroyed
             this.addScore(points * this.comboMultiplier);
 
             // Create explosion based on enemy type and layer
             const explosionSize = this.getExplosionSize(enemyType, isBoss);
             this.createExplosion(e.x, e.y, explosionSize);
+
+            // Show announcement for regular boss defeat (non-graduation)
+            if (isBoss && !isGraduationBoss) {
+                this.showAnnouncement(
+                    "BOSS DEFEATED!",
+                    `+${points} points`,
+                    0x00ff00 // Green color for success
+                );
+            }
 
             // If graduation boss was defeated, advance to next layer
             if (isGraduationBoss) {
@@ -849,6 +913,16 @@ export class GameScene extends Phaser.Scene {
                 // Visual effect for layer transition
                 this.cameras.main.flash(500, 0, 255, 0, false); // Green flash for success
                 this.cameras.main.shake(300, 0.01);
+
+                // Show announcement card for boss defeated and layer advanced
+                const layerName =
+                    LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG]
+                        .name;
+                this.showAnnouncement(
+                    "BOSS DEFEATED!",
+                    `Advanced to ${layerName}`,
+                    0x00ff00 // Green color for success
+                );
 
                 // Resume normal enemy spawning
                 this.updateSpawnTimer();
@@ -1035,6 +1109,154 @@ export class GameScene extends Phaser.Scene {
                 },
             });
         }
+    }
+
+    private createEnemyHealthBar(enemy: Phaser.Physics.Arcade.Sprite) {
+        // Create health bar container (background + fill)
+        const healthBarBg = this.add.graphics();
+        const healthBarFill = this.add.graphics();
+
+        // Store health bar graphics with enemy
+        enemy.setData("healthBarBg", healthBarBg);
+        enemy.setData("healthBarFill", healthBarFill);
+
+        // Initial health bar update
+        this.updateEnemyHealthBar(enemy);
+    }
+
+    private updateEnemyHealthBar(enemy: Phaser.Physics.Arcade.Sprite) {
+        const healthBarBg = enemy.getData("healthBarBg") as
+            | Phaser.GameObjects.Graphics
+            | undefined;
+        const healthBarFill = enemy.getData("healthBarFill") as
+            | Phaser.GameObjects.Graphics
+            | undefined;
+
+        if (!healthBarBg || !healthBarFill || !enemy.active) {
+            return;
+        }
+
+        const health = enemy.getData("health") || 1;
+        const maxHealth = enemy.getData("maxHealth") || 1;
+        const healthPercent = Math.max(0, Math.min(1, health / maxHealth));
+
+        const healthBarWidth = 40 * MOBILE_SCALE;
+        const healthBarHeight = 4 * MOBILE_SCALE;
+        const offsetY = -25 * MOBILE_SCALE; // Position above enemy
+
+        // Clear previous drawings
+        healthBarBg.clear();
+        healthBarFill.clear();
+
+        // Draw background (dark red/black)
+        healthBarBg.fillStyle(0x330000, 0.8);
+        healthBarBg.fillRect(
+            enemy.x - healthBarWidth / 2,
+            enemy.y + offsetY,
+            healthBarWidth,
+            healthBarHeight
+        );
+
+        // Draw health fill (green, transitioning to red/yellow as health decreases)
+        let fillColor = 0x00ff00; // Green
+        if (healthPercent < 0.3) {
+            fillColor = 0xff0000; // Red when low
+        } else if (healthPercent < 0.6) {
+            fillColor = 0xffff00; // Yellow when medium
+        }
+
+        healthBarFill.fillStyle(fillColor, 1);
+        healthBarFill.fillRect(
+            enemy.x - healthBarWidth / 2,
+            enemy.y + offsetY,
+            healthBarWidth * healthPercent,
+            healthBarHeight
+        );
+    }
+
+    private showAnnouncement(
+        title: string,
+        subtitle: string,
+        color: number = 0x00ff00
+    ) {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
+
+        // Create announcement container
+        const cardWidth = 400 * uiScale;
+        const cardHeight = 120 * uiScale;
+        const cardX = width / 2;
+        const cardY = height / 2 - 100 * uiScale;
+
+        // Background card
+        const cardBg = this.add.rectangle(
+            cardX,
+            cardY,
+            cardWidth,
+            cardHeight,
+            0x000000,
+            0.95
+        );
+        cardBg.setStrokeStyle(3, color);
+
+        // Title text
+        const titleText = this.add.text(cardX, cardY - 20 * uiScale, title, {
+            fontFamily: UI_CONFIG.logoFont,
+            fontSize: 32 * uiScale,
+            color: `#${color.toString(16).padStart(6, "0")}`,
+            stroke: "#000000",
+            strokeThickness: 4,
+        });
+        titleText.setOrigin(0.5, 0.5);
+
+        // Subtitle text
+        const subtitleText = this.add.text(
+            cardX,
+            cardY + 20 * uiScale,
+            subtitle,
+            {
+                fontFamily: UI_CONFIG.menuFont,
+                fontSize: 18 * uiScale,
+                color: UI_CONFIG.neonGreen,
+                stroke: "#000000",
+                strokeThickness: 2,
+            }
+        );
+        subtitleText.setOrigin(0.5, 0.5);
+
+        // Create container for easy cleanup
+        const container = this.add.container(0, 0, [
+            cardBg,
+            titleText,
+            subtitleText,
+        ]);
+
+        // Animation: slide in from top, then fade out
+        container.setY(-200);
+        container.setAlpha(0);
+
+        // Slide in
+        this.tweens.add({
+            targets: container,
+            y: cardY,
+            alpha: 1,
+            duration: 500,
+            ease: "Back.easeOut",
+        });
+
+        // Hold for 3 seconds, then fade out
+        this.tweens.add({
+            targets: container,
+            alpha: 0,
+            y: cardY - 50,
+            duration: 500,
+            delay: 3000,
+            ease: "Power2",
+            onComplete: () => {
+                container.destroy();
+            },
+        });
     }
 
     private createExplosion(
