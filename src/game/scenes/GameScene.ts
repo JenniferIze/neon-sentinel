@@ -5,6 +5,7 @@ import {
     SPAWN_CONFIG,
     LAYER_CONFIG,
     POWERUP_CONFIG,
+    MOBILE_SCALE,
 } from "../config";
 
 export class GameScene extends Phaser.Scene {
@@ -28,12 +29,15 @@ export class GameScene extends Phaser.Scene {
     private deepestLayer = 1;
     private enemyBullets!: Phaser.Physics.Arcade.Group;
     private isPaused = false;
+    private graduationBossActive = false; // Track if graduation boss is active
+    private pendingLayer = 1; // Layer waiting to be unlocked after boss defeat
     private powerUps!: Phaser.Physics.Arcade.Group;
     private speedMultiplier = 1;
     private fireRateMultiplier = 1;
     private scoreMultiplier = 1;
     private powerUpTimers: Map<string, Phaser.Time.TimerEvent> = new Map();
     private autoShootEnabled = false;
+    private firepowerLevel = 0; // 0 = normal, 1+ = increased firepower (multiple bullets)
     private spaceKey!: Phaser.Input.Keyboard.Key;
 
     constructor() {
@@ -51,12 +55,12 @@ export class GameScene extends Phaser.Scene {
         const startY = gameHeight * 0.9; // 90% from top (near bottom)
         this.player = this.physics.add.sprite(startX, startY, "hero");
         this.player.setCollideWorldBounds(true);
-        this.player.setScale(0.5);
+        this.player.setScale(0.5 * MOBILE_SCALE);
 
         // Create groups
         this.bullets = this.physics.add.group({
             defaultKey: "greenBullet1",
-            maxSize: 50,
+            maxSize: 100, // Increased to support multiple bullets per shot
         });
 
         this.enemyBullets = this.physics.add.group({
@@ -259,13 +263,26 @@ export class GameScene extends Phaser.Scene {
             }
 
             const canShoot = enemy.getData("canShoot");
+            const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
 
             if (canShoot && enemy.active) {
                 const lastShot = enemy.getData("lastShot") || 0;
                 const shootInterval = enemy.getData("shootInterval") || 2000;
 
                 if (time - lastShot > shootInterval) {
-                    this.enemyShoot(enemy);
+                    // Graduation bosses shoot more frequently and with multiple bullets
+                    if (isGraduationBoss) {
+                        this.enemyShoot(enemy, 0); // Center bullet
+                        // Shoot 2 additional bullets in spread pattern
+                        this.time.delayedCall(100, () => {
+                            if (enemy.active) this.enemyShoot(enemy, -15); // Left angle
+                        });
+                        this.time.delayedCall(200, () => {
+                            if (enemy.active) this.enemyShoot(enemy, 15); // Right angle
+                        });
+                    } else {
+                        this.enemyShoot(enemy, 0);
+                    }
                     enemy.setData("lastShot", time);
                 }
             }
@@ -312,22 +329,72 @@ export class GameScene extends Phaser.Scene {
     private shoot() {
         if (this.gameOver) return;
 
-        const bullet = this.bullets.get(
-            this.player.x + 30,
-            this.player.y
-        ) as Phaser.Physics.Arcade.Sprite;
+        const playerX = this.player.x + 30;
+        const playerY = this.player.y;
 
-        if (bullet) {
-            bullet.setActive(true);
-            bullet.setVisible(true);
-            bullet.setScale(0.5);
-            bullet.setVelocityX(PLAYER_CONFIG.bulletSpeed);
-            bullet.setVelocityY(0);
+        // Base firepower: single bullet
+        if (this.firepowerLevel === 0) {
+            const bullet = this.bullets.get(
+                playerX,
+                playerY
+            ) as Phaser.Physics.Arcade.Sprite;
+            if (bullet) {
+                bullet.setActive(true);
+                bullet.setVisible(true);
+                bullet.setScale(0.5 * MOBILE_SCALE);
+                bullet.setTexture("greenBullet1"); // Normal green bullet
+                bullet.setVelocityX(PLAYER_CONFIG.bulletSpeed);
+                bullet.setVelocityY(0);
+            }
+        } else {
+            // Increased firepower: multiple bullets with spread
+            const bulletCount = 1 + this.firepowerLevel; // 2 bullets at level 1, 3 at level 2, etc.
+            const spreadAngle = Math.min(15 * this.firepowerLevel, 30); // Max 30 degree spread
+
+            for (let i = 0; i < bulletCount; i++) {
+                const bullet = this.bullets.get(
+                    playerX,
+                    playerY
+                ) as Phaser.Physics.Arcade.Sprite;
+                if (bullet) {
+                    bullet.setActive(true);
+                    bullet.setVisible(true);
+                    bullet.setScale(0.6 * MOBILE_SCALE); // Slightly larger for visual impact
+
+                    // Use different bullet sprites based on firepower level
+                    if (this.firepowerLevel === 1) {
+                        bullet.setTexture("greenBullet2"); // Upgraded green bullet
+                    } else if (this.firepowerLevel >= 2) {
+                        bullet.setTexture("yellowBullet"); // Yellow bullet for high firepower
+                        bullet.setScale(0.7 * MOBILE_SCALE); // Even larger
+                    } else {
+                        bullet.setTexture("greenBullet1");
+                    }
+
+                    // Calculate spread angle
+                    const angleOffset =
+                        (i - (bulletCount - 1) / 2) *
+                        (spreadAngle / (bulletCount - 1 || 1));
+                    const angle = Phaser.Math.DegToRad(angleOffset);
+
+                    // Set velocity with spread
+                    const velocityX =
+                        Math.cos(angle) * PLAYER_CONFIG.bulletSpeed;
+                    const velocityY =
+                        Math.sin(angle) * PLAYER_CONFIG.bulletSpeed;
+                    bullet.setVelocity(velocityX, velocityY);
+                }
+            }
         }
     }
 
     private spawnEnemy() {
         if (this.gameOver) return;
+
+        // Don't spawn normal enemies if graduation boss is active
+        if (this.graduationBossActive) {
+            return;
+        }
 
         // Get max enemies based on current layer
         const currentLayerConfig =
@@ -394,7 +461,7 @@ export class GameScene extends Phaser.Scene {
         const y = Phaser.Math.Between(50, gameHeight - 50);
 
         const enemy = this.physics.add.sprite(x, y, key);
-        enemy.setScale(0.5);
+        enemy.setScale(0.5 * MOBILE_SCALE);
 
         // Scale health based on current layer
         const healthMultiplier = currentLayerConfig?.healthMultiplier || 1.0;
@@ -508,7 +575,7 @@ export class GameScene extends Phaser.Scene {
         const y = gameHeight / 2;
 
         const boss = this.physics.add.sprite(x, y, bossKey);
-        boss.setScale(0.6);
+        boss.setScale(0.6 * MOBILE_SCALE);
 
         // Scale boss health based on current layer
         const layerConfig =
@@ -539,6 +606,118 @@ export class GameScene extends Phaser.Scene {
         boss.setVelocity(velocityX, velocityY);
     }
 
+    private spawnGraduationBoss(targetLayer: number) {
+        // Mark that a graduation boss is active
+        this.graduationBossActive = true;
+
+        // Stop normal enemy spawning
+        if (this.spawnTimer) {
+            this.spawnTimer.remove();
+            this.spawnTimer = null;
+        }
+
+        // Determine boss type based on target layer
+        let bossKey = "";
+        let bossType = "";
+        let points = 0;
+        let health = 0;
+        let speed = 0;
+
+        if (targetLayer >= 6) {
+            // Final boss for layer 6
+            bossKey = "finalBoss";
+            bossType = "red";
+            points = ENEMY_CONFIG.red.points * 2; // Double points for graduation boss
+            health = ENEMY_CONFIG.red.health;
+            speed = ENEMY_CONFIG.red.speed;
+        } else if (targetLayer >= 5) {
+            // Medium boss for layer 5
+            bossKey = "mediumFinalBoss";
+            bossType = "red";
+            points = 500; // Higher points for graduation boss
+            health = 15; // More health
+            speed = 100;
+        } else if (targetLayer >= 4) {
+            // Purple boss for layer 4
+            bossKey = "enemyPurpleBoss";
+            bossType = "purple";
+            points = 250; // Higher points
+            health = 12; // More health
+            speed = 150;
+        } else if (targetLayer >= 3) {
+            // Blue boss for layer 3 (use blue enemy sprite)
+            bossKey = "enemyBlue";
+            bossType = "blue";
+            points = 150;
+            health = 10;
+            speed = 120;
+        } else if (targetLayer >= 2) {
+            // Yellow boss for layer 2
+            bossKey = "enemyYellow";
+            bossType = "yellow";
+            points = 100;
+            health = 6;
+            speed = 150;
+        } else {
+            // Green boss for layer 1 (shouldn't happen, but just in case)
+            bossKey = "enemyGreen";
+            bossType = "green";
+            points = 50;
+            health = 4;
+            speed = 100;
+        }
+
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const x = gameWidth + 50;
+        const y = gameHeight / 2;
+
+        const boss = this.physics.add.sprite(x, y, bossKey);
+        boss.setScale(0.7 * 3 * MOBILE_SCALE); // 3x larger for graduation bosses, scaled for mobile
+
+        // Scale boss health based on target layer
+        const layerConfig =
+            LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG];
+        const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
+        const scaledHealth = Math.ceil(health * healthMultiplier * 10); // 10x toughness for graduation bosses
+
+        boss.setData("type", bossType);
+        boss.setData("points", points);
+        boss.setData("speed", speed);
+        boss.setData("health", scaledHealth);
+        boss.setData("maxHealth", scaledHealth);
+        boss.setData("canShoot", true); // Graduation bosses can shoot
+        boss.setData("isBoss", true);
+        boss.setData("isGraduationBoss", true); // Mark as graduation boss
+        boss.setData("lastShot", 0);
+        boss.setData("shootInterval", 1500); // Shoot every 1.5 seconds
+
+        this.enemies.add(boss);
+
+        // Boss moves toward player
+        const angle = Phaser.Math.Angle.Between(
+            boss.x,
+            boss.y,
+            this.player.x,
+            this.player.y
+        );
+
+        const velocityX = Math.cos(angle) * speed;
+        const velocityY = Math.sin(angle) * speed;
+        boss.setVelocity(velocityX, velocityY);
+
+        // Visual effect - screen flash and shake
+        this.cameras.main.flash(300, 255, 0, 0, false); // Red flash
+        this.cameras.main.shake(500, 0.02);
+
+        // Show warning message (could be enhanced with UI text)
+        console.log(
+            `GRADUATION BOSS SPAWNED! Defeat it to advance to ${
+                LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG].name
+            }`
+        );
+    }
+
     private handleBulletEnemyCollision(
         bullet: Phaser.Types.Physics.Arcade.GameObjectWithBody,
         enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody
@@ -560,6 +739,9 @@ export class GameScene extends Phaser.Scene {
         e.setData("health", health);
 
         if (health <= 0) {
+            // Check if this was a graduation boss
+            const isGraduationBoss = e.getData("isGraduationBoss") || false;
+
             // Enemy destroyed
             this.addScore(points * this.comboMultiplier);
 
@@ -567,16 +749,56 @@ export class GameScene extends Phaser.Scene {
             const explosionSize = this.getExplosionSize(enemyType, isBoss);
             this.createExplosion(e.x, e.y, explosionSize);
 
-            // Spawn lives power-up (50% chance from all enemies)
-            if (Math.random() < POWERUP_CONFIG.livesSpawnChance) {
-                this.spawnLivesPowerUp(e.x, e.y);
-            }
-            // Spawn other power-ups from purple/red enemies (25% chance)
-            else if (
-                (enemyType === "purple" || enemyType === "red" || isBoss) &&
-                Math.random() < POWERUP_CONFIG.spawnChance
-            ) {
-                this.spawnPowerUp(e.x, e.y);
+            // If graduation boss was defeated, advance to next layer
+            if (isGraduationBoss) {
+                this.graduationBossActive = false;
+                this.currentLayer = this.pendingLayer;
+                if (this.pendingLayer > this.deepestLayer) {
+                    this.deepestLayer = this.pendingLayer;
+                }
+                this.registry.set("currentLayer", this.currentLayer);
+                this.registry.set(
+                    "layerName",
+                    LAYER_CONFIG[this.pendingLayer as keyof typeof LAYER_CONFIG]
+                        .name
+                );
+
+                // Update grid color when layer changes
+                this.drawBackgroundGrid();
+
+                // Visual effect for layer transition
+                this.cameras.main.flash(500, 0, 255, 0, false); // Green flash for success
+                this.cameras.main.shake(300, 0.01);
+
+                // Resume normal enemy spawning
+                this.updateSpawnTimer();
+
+                // Spawn multiple power-ups as reward
+                for (let i = 0; i < 3; i++) {
+                    this.time.delayedCall(i * 200, () => {
+                        this.spawnLivesPowerUp(
+                            e.x + Phaser.Math.Between(-50, 50),
+                            e.y + Phaser.Math.Between(-50, 50)
+                        );
+                    });
+                }
+            } else {
+                // Normal enemy - spawn power-ups as usual
+                // Spawn lives power-up (50% chance from all enemies)
+                if (Math.random() < POWERUP_CONFIG.livesSpawnChance) {
+                    this.spawnLivesPowerUp(e.x, e.y);
+                }
+                // Spawn firepower power-up (30% chance from all enemies)
+                else if (Math.random() < POWERUP_CONFIG.firepowerSpawnChance) {
+                    this.spawnFirepowerPowerUp(e.x, e.y);
+                }
+                // Spawn other power-ups from purple/red enemies (25% chance)
+                else if (
+                    (enemyType === "purple" || enemyType === "red" || isBoss) &&
+                    Math.random() < POWERUP_CONFIG.spawnChance
+                ) {
+                    this.spawnPowerUp(e.x, e.y);
+                }
             }
 
             // Remove enemy
@@ -720,7 +942,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         const explosion = this.add.sprite(x, y, key);
-        explosion.setScale(scale);
+        explosion.setScale(scale * MOBILE_SCALE);
 
         this.tweens.add({
             targets: explosion,
@@ -733,7 +955,10 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
-    private enemyShoot(enemy: Phaser.Physics.Arcade.Sprite) {
+    private enemyShoot(
+        enemy: Phaser.Physics.Arcade.Sprite,
+        angleOffset: number = 0
+    ) {
         const bullet = this.enemyBullets.get(
             enemy.x - 30,
             enemy.y
@@ -742,15 +967,16 @@ export class GameScene extends Phaser.Scene {
         if (bullet) {
             bullet.setActive(true);
             bullet.setVisible(true);
-            bullet.setScale(0.4);
+            bullet.setScale(0.4 * MOBILE_SCALE);
 
-            // Shoot toward player
-            const angle = Phaser.Math.Angle.Between(
-                enemy.x,
-                enemy.y,
-                this.player.x,
-                this.player.y
-            );
+            // Shoot toward player with optional angle offset
+            const angle =
+                Phaser.Math.Angle.Between(
+                    enemy.x,
+                    enemy.y,
+                    this.player.x,
+                    this.player.y
+                ) + Phaser.Math.DegToRad(angleOffset);
 
             const config =
                 ENEMY_CONFIG[
@@ -773,7 +999,7 @@ export class GameScene extends Phaser.Scene {
         const powerUpConfig = POWERUP_CONFIG.types[randomType];
 
         const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
-        powerUp.setScale(0.4);
+        powerUp.setScale(0.4 * MOBILE_SCALE);
         powerUp.setData("type", randomType);
         powerUp.setData("config", powerUpConfig);
 
@@ -793,9 +1019,30 @@ export class GameScene extends Phaser.Scene {
         const powerUpConfig = POWERUP_CONFIG.types.lives;
 
         const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
-        powerUp.setScale(0.5); // Slightly larger for visibility
+        powerUp.setScale(0.5 * MOBILE_SCALE); // Slightly larger for visibility
         powerUp.setTint(0xff00ff); // Purple/magenta tint to distinguish from other power-ups
         powerUp.setData("type", "lives");
+        powerUp.setData("config", powerUpConfig);
+
+        // Add floating animation
+        this.tweens.add({
+            targets: powerUp,
+            y: powerUp.y - 10,
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+        });
+
+        this.powerUps.add(powerUp);
+    }
+
+    private spawnFirepowerPowerUp(x: number, y: number) {
+        const powerUpConfig = POWERUP_CONFIG.types.firepower;
+
+        const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
+        powerUp.setScale(0.5 * MOBILE_SCALE);
+        powerUp.setTint(0xffff00); // Yellow tint to distinguish as firepower power-up
+        powerUp.setData("type", "firepower");
         powerUp.setData("config", powerUpConfig);
 
         // Add floating animation
@@ -874,6 +1121,31 @@ export class GameScene extends Phaser.Scene {
             // Visual feedback with larger explosion
             this.createExplosion(this.player.x, this.player.y, "medium");
             return; // Early return - no need for small explosion
+        } else if (powerUpType === "firepower") {
+            // Cancel existing firepower timer if any
+            if (this.powerUpTimers.has("firepower")) {
+                this.powerUpTimers.get("firepower")!.remove();
+            }
+
+            // Increase firepower level and fire rate
+            this.firepowerLevel += config.firepowerLevel;
+            this.fireRateMultiplier *= config.fireRateMultiplier;
+
+            const timer = this.time.delayedCall(config.duration, () => {
+                // Reset firepower level
+                this.firepowerLevel = Math.max(
+                    0,
+                    this.firepowerLevel - config.firepowerLevel
+                );
+                // Reset fire rate multiplier (divide by the same amount)
+                this.fireRateMultiplier /= config.fireRateMultiplier;
+                this.powerUpTimers.delete("firepower");
+            });
+            this.powerUpTimers.set("firepower", timer);
+
+            // Visual feedback with larger explosion
+            this.createExplosion(this.player.x, this.player.y, "medium");
+            return; // Early return - no need for small explosion
         }
 
         // Visual feedback
@@ -895,37 +1167,27 @@ export class GameScene extends Phaser.Scene {
     }
 
     private updateLayer() {
-        // Determine current layer based on score thresholds
-        let newLayer = 1;
+        // Don't progress if a graduation boss is active
+        if (this.graduationBossActive) {
+            return;
+        }
+
+        // Determine target layer based on score thresholds
+        let targetLayer = 1;
         for (let layer = 6; layer >= 1; layer--) {
             if (
                 this.score >=
                 LAYER_CONFIG[layer as keyof typeof LAYER_CONFIG].scoreThreshold
             ) {
-                newLayer = layer;
+                targetLayer = layer;
                 break;
             }
         }
 
-        if (newLayer > this.currentLayer) {
-            this.currentLayer = newLayer;
-            if (newLayer > this.deepestLayer) {
-                this.deepestLayer = newLayer;
-            }
-            this.registry.set("currentLayer", this.currentLayer);
-            this.registry.set(
-                "layerName",
-                LAYER_CONFIG[newLayer as keyof typeof LAYER_CONFIG].name
-            );
-
-            // Update grid color when layer changes
-            this.drawBackgroundGrid();
-
-            // Visual effect for layer transition
-            this.cameras.main.flash(500, 255, 255, 255, false);
-
-            // Update spawn timer for new layer (faster spawns)
-            this.updateSpawnTimer();
+        // If we've reached a new layer threshold, spawn graduation boss
+        if (targetLayer > this.currentLayer) {
+            this.pendingLayer = targetLayer;
+            this.spawnGraduationBoss(targetLayer);
         }
     }
 
@@ -974,7 +1236,10 @@ export class GameScene extends Phaser.Scene {
         this.lastHitTime = 0;
         this.nextSpawnTime = SPAWN_CONFIG.initialDelay;
         this.currentLayer = 1;
+        this.deepestLayer = 1;
         this.lives = PLAYER_CONFIG.initialLives;
+        this.graduationBossActive = false;
+        this.pendingLayer = 1;
 
         // Reset player to dynamic position
         const gameWidth = this.scale.width;
@@ -996,6 +1261,7 @@ export class GameScene extends Phaser.Scene {
         this.fireRateMultiplier = 1;
         this.scoreMultiplier = 1;
         this.autoShootEnabled = false;
+        this.firepowerLevel = 0;
 
         // Clear power-up timers
         this.powerUpTimers.forEach((timer) => timer.remove());

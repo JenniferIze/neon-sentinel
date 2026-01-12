@@ -85,6 +85,7 @@ export class BootScene extends Phaser.Scene {
     // Bullet sprites
     this.load.image('greenBullet1', '/sprites/green_bullet_1.svg');
     this.load.image('greenBullet2', '/sprites/green_bullet_2.svg');
+    this.load.image('yellowBullet', '/sprites/yellow_bullet.svg');
     this.load.image('blueBullet', '/sprites/blue_bullet.svg');
     
     // Explosion sprites

@@ -1,5 +1,18 @@
 // Game configuration constants
 
+// Mobile detection utility
+export function isMobileDevice(): boolean {
+    if (typeof window === "undefined") return false;
+    return (
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+            navigator.userAgent
+        ) || window.innerWidth <= 768
+    );
+}
+
+// Mobile scale multiplier (50% size on mobile)
+export const MOBILE_SCALE = isMobileDevice() ? 0.5 : 1.0;
+
 export const GAME_CONFIG = {
     width: 800,
     height: 600,
@@ -125,6 +138,7 @@ export const SPAWN_CONFIG = {
 export const POWERUP_CONFIG = {
     spawnChance: 0.25, // Increased from 0.15 to 0.25 (more frequent)
     livesSpawnChance: 0.5, // 50% chance for lives power-up from all enemies
+    firepowerSpawnChance: 0.3, // 30% chance for firepower power-up from all enemies
     types: {
         speed: {
             key: "power_up",
@@ -148,6 +162,12 @@ export const POWERUP_CONFIG = {
         lives: {
             key: "orb", // Using orb sprite for lives power-up
             livesGranted: 2, // Grants 2 lives
+        },
+        firepower: {
+            key: "power_up_2", // Yellow power-up sprite
+            duration: 15000, // 15 seconds
+            fireRateMultiplier: 0.4, // Much faster shooting (60% faster)
+            firepowerLevel: 1, // Increases firepower level (stacks)
         },
     },
 } as const;
