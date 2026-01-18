@@ -14,6 +14,7 @@ export class UIScene extends Phaser.Scene {
   private pauseText!: Phaser.GameObjects.Text;
   private leaderboardPanel!: Phaser.GameObjects.Container;
   private leaderboardVisible = false;
+  private leaderboardAutoHideTimer?: Phaser.Time.TimerEvent;
   // Buttons
   private pauseButton!: Phaser.GameObjects.Container;
   private restartButton!: Phaser.GameObjects.Container;
@@ -286,32 +287,43 @@ export class UIScene extends Phaser.Scene {
     const height = this.scale.height;
     const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
 
+    // Square panel - 450x450 (not full width)
+    const panelSize = 450 * uiScale;
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panelPadding = 20 * uiScale;
+
     // Background panel
     const panelBg = this.add.rectangle(
-      width / 2,
-      height / 2 + 150,
-      width - 100,
-      300,
+      panelX,
+      panelY,
+      panelSize,
+      panelSize,
       0x000000,
       0.95
     );
     panelBg.setStrokeStyle(2, 0x00ff00);
 
     // Title - Oxanium for menu headings
-    const title = this.add.text(width / 2, height / 2 + 50, 'WEEKLY LEADERBOARD', {
+    const title = this.add.text(panelX, panelY - panelSize / 2 + 40 * uiScale, 'WEEKLY LEADERBOARD', {
       fontFamily: UI_CONFIG.menuFont,
-      fontSize: UI_CONFIG.fontSize.small,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
       strokeThickness: 4,
     });
     title.setOrigin(0.5, 0.5);
 
-    // Close button (X) - positioned at top-right of panel
+    // Close button (X) - positioned at top-left of panel
     const closeButtonSize = 30 * uiScale;
+    const closeButtonX = panelX - panelSize / 2 + panelPadding;
+    const closeButtonY = panelY - panelSize / 2 + panelPadding;
+    
+    // Create container first, then add elements relative to (0, 0)
+    const closeButton = this.add.container(closeButtonX, closeButtonY);
+    
     const closeButtonBg = this.add.circle(
-      width / 2 + (width - 100) / 2 - 20,
-      height / 2 + 150 - 140,
+      0, 0,  // Position relative to container
       closeButtonSize / 2,
       0x000000,
       0.9
@@ -319,50 +331,59 @@ export class UIScene extends Phaser.Scene {
     closeButtonBg.setStrokeStyle(2, 0x00ff00);
     closeButtonBg.setInteractive({ useHandCursor: true });
 
-    // X icon (two diagonal lines)
-    const line1 = this.add.line(
-      0, 0,
-      -closeButtonSize / 3, -closeButtonSize / 3,
-      closeButtonSize / 3, closeButtonSize / 3,
-      0x00ff00,
-      1
+    // X icon as text (more reliable positioning)
+    const xText = this.add.text(
+      0, 0,  // Position relative to container
+      '×',
+      {
+        fontFamily: 'Arial',
+        fontSize: (closeButtonSize * 0.7) + 'px',
+        color: '#00ff00',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }
     );
-    line1.setLineWidth(3);
-    const line2 = this.add.line(
-      0, 0,
-      closeButtonSize / 3, -closeButtonSize / 3,
-      -closeButtonSize / 3, closeButtonSize / 3,
-      0x00ff00,
-      1
-    );
-    line2.setLineWidth(3);
+    xText.setOrigin(0.5, 0.5);
 
-    const closeButton = this.add.container(
-      width / 2 + (width - 100) / 2 - 20,
-      height / 2 + 150 - 140,
-      [closeButtonBg, line1, line2]
-    );
+    closeButton.add([closeButtonBg, xText]);
 
     // Hover effects
     closeButtonBg.on('pointerover', () => {
       closeButtonBg.setFillStyle(0x001100, 0.95);
       closeButtonBg.setStrokeStyle(3, 0x00ff00);
+      xText.setColor('#00ff00');
     });
 
     closeButtonBg.on('pointerout', () => {
       closeButtonBg.setFillStyle(0x000000, 0.9);
       closeButtonBg.setStrokeStyle(2, 0x00ff00);
+      xText.setColor('#00ff00');
     });
 
     // Click handler to close leaderboard
     closeButtonBg.on('pointerdown', () => {
-      this.leaderboardPanel.setVisible(false);
-      this.leaderboardVisible = false;
+      this.hideLeaderboard();
+    });
+    
+    // Also make the text clickable
+    xText.setInteractive({ useHandCursor: true });
+    xText.on('pointerdown', () => {
+      this.hideLeaderboard();
     });
 
     // Leaderboard entries will be created dynamically
     this.leaderboardPanel = this.add.container(0, 0, [panelBg, title, closeButton]);
     this.leaderboardPanel.setVisible(false);
+  }
+
+  private hideLeaderboard() {
+    this.leaderboardPanel.setVisible(false);
+    this.leaderboardVisible = false;
+    // Clear auto-hide timer if it exists
+    if (this.leaderboardAutoHideTimer) {
+      this.leaderboardAutoHideTimer.remove();
+      this.leaderboardAutoHideTimer = undefined;
+    }
   }
 
   // Helper function to create styled buttons
@@ -480,8 +501,7 @@ export class UIScene extends Phaser.Scene {
       this.pauseButton.setVisible(false); // Hide pause button when game over
     } else {
       this.gameOverContainer.setVisible(false);
-      this.leaderboardPanel.setVisible(false);
-      this.leaderboardVisible = false;
+      this.hideLeaderboard();
       this.pauseButton.setVisible(true); // Show pause button when game restarts
     }
   }
@@ -511,53 +531,71 @@ export class UIScene extends Phaser.Scene {
     if (this.leaderboardVisible) return;
 
     try {
+      // Clear any existing auto-hide timer
+      if (this.leaderboardAutoHideTimer) {
+        this.leaderboardAutoHideTimer.remove();
+        this.leaderboardAutoHideTimer = undefined;
+      }
+
       // Import score service
       const { fetchWeeklyLeaderboard, getCurrentISOWeek } = await import('../../services/scoreService');
       const scores = fetchWeeklyLeaderboard();
       const weekNumber = getCurrentISOWeek();
 
-    // Update title with week number
-    const title = this.leaderboardPanel.list[1] as Phaser.GameObjects.Text;
-    title.setText(`WEEK ${weekNumber} LEADERBOARD`);
+      // Update title with week number
+      const title = this.leaderboardPanel.list[1] as Phaser.GameObjects.Text;
+      title.setText(`WEEK ${weekNumber} LEADERBOARD`);
 
-    // Remove old entries (except background and title)
-    const entriesToRemove: Phaser.GameObjects.GameObject[] = [];
-    this.leaderboardPanel.list.forEach((child, index) => {
-      if (index > 1) {
-        entriesToRemove.push(child);
-      }
-    });
-    entriesToRemove.forEach(child => {
-      this.leaderboardPanel.remove(child);
-      child.destroy();
-    });
-
-    // Create new entries
-    const gameHeight = this.scale.height;
-    const startY = gameHeight / 2 + 100;
-    scores.slice(0, 10).forEach((entry, index) => {
-      const y = startY + (index * 25);
-      const rank = index + 1;
-      const playerName = entry.playerName || 'Anonymous';
-      const displayName = playerName.length > 12 ? playerName.substring(0, 12) + '...' : playerName;
-      
-      const gameWidth = this.scale.width;
-      const entryText = this.add.text(gameWidth / 2, y, 
-        `${rank}. ${displayName.padEnd(15)} ${entry.score.toLocaleString()}`,
-        {
-          fontFamily: UI_CONFIG.scoreFont,
-          fontSize: 18,
-          color: UI_CONFIG.neonGreen,
-          stroke: '#000000',
-          strokeThickness: 2,
+      // Remove old entries (except background [0], title [1], and closeButton [2])
+      const entriesToRemove: Phaser.GameObjects.GameObject[] = [];
+      this.leaderboardPanel.list.forEach((child, index) => {
+        if (index > 2) {
+          entriesToRemove.push(child);
         }
-      );
-      entryText.setOrigin(0.5, 0.5);
-      this.leaderboardPanel.add(entryText);
-    });
+      });
+      entriesToRemove.forEach(child => {
+        this.leaderboardPanel.remove(child);
+        child.destroy();
+      });
+
+      // Create new entries - positioned relative to square panel center
+      const width = this.scale.width;
+      const height = this.scale.height;
+      const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
+      const panelSize = 450 * uiScale;
+      const panelX = width / 2;
+      const panelY = height / 2;
+      const entryStartY = panelY - panelSize / 2 + 80 * uiScale;
+      const entrySpacing = 22 * uiScale;
+      const entryFontSize = 16 * uiScale;
+
+      scores.slice(0, 10).forEach((entry, index) => {
+        const y = entryStartY + (index * entrySpacing);
+        const rank = index + 1;
+        const playerName = entry.playerName || 'Anonymous';
+        const displayName = playerName.length > 12 ? playerName.substring(0, 12) + '...' : playerName;
+        
+        const entryText = this.add.text(panelX, y, 
+          `${rank}. ${displayName.padEnd(15)} ${entry.score.toLocaleString()}`,
+          {
+            fontFamily: UI_CONFIG.scoreFont,
+            fontSize: entryFontSize,
+            color: UI_CONFIG.neonGreen,
+            stroke: '#000000',
+            strokeThickness: 2,
+          }
+        );
+        entryText.setOrigin(0.5, 0.5);
+        this.leaderboardPanel.add(entryText);
+      });
 
       this.leaderboardPanel.setVisible(true);
       this.leaderboardVisible = true;
+
+      // Auto-hide after 5 seconds
+      this.leaderboardAutoHideTimer = this.time.delayedCall(5000, () => {
+        this.hideLeaderboard();
+      });
     } catch (error) {
       console.error('Error showing leaderboard:', error);
     }
@@ -570,8 +608,7 @@ export class UIScene extends Phaser.Scene {
     }
     this.gameOverContainer.setVisible(false);
     this.pauseContainer.setVisible(false);
-    this.leaderboardPanel.setVisible(false);
-    this.leaderboardVisible = false;
+    this.hideLeaderboard();
     this.registry.set('gameOver', false);
     this.registry.set('isPaused', false);
   }
